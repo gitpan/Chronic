@@ -1,7 +1,7 @@
 ##
 ## Load Average Constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Freq.pm,v 1.2 2004/05/08 05:18:15 hackworth Exp $
+## $Id: Freq.pm,v 1.3 2004/06/30 21:53:21 hackworth Exp $
 ##
 
 package Schedule::Chronic::Constraint::Freq;
@@ -48,7 +48,7 @@ sub met {
 
     return 1 if $$self{task}{last_ran} == 0;
     $$self{wait} = $$self{task}{last_ran} - (time() - $$self{seconds});
-    return 1 if ($$self{wait} < 0);
+   return 1 if ($$self{wait} < 0);
     return 0;
     
 }

@@ -1,6 +1,8 @@
+#
 # Constraint-based, opportunistic scheduler.
-## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Chronic.pm,v 1.7 2004/06/04 21:34:32 hackworth Exp $
+# Author: Vipul Ved Prakash <mail@vipul.net>.
+# $Id: Chronic.pm,v 1.10 2004/06/30 21:49:47 hackworth Exp $
+#
 
 package Schedule::Chronic; 
 use base qw(Schedule::Chronic::Base Schedule::Chronic::Tab);
@@ -17,6 +19,7 @@ sub new {
     $self{scheduler_wait}       = new Schedule::Chronic::Timer ('down');
     $self{var}                  ||= '/var/run';
     $self{max_sw}               = 10 * 60;  # 10 minutes
+    $self{only_once_tw}         = 10 * 365 * 24 * 3600; # 10 years
 
     unless (exists $self{debug}) {
         $self{debug} = 1;
@@ -126,7 +129,7 @@ sub schedule {
         $sw = $self->{max_sw} if $sw > $self->{max_sw};
         if ($sw > 0) { 
             $scheduler_wait->set($sw);
-            $self->debug("scheduler_wait: set to $sw");
+            $self->debug("scheduler_wait: set to " . $self->time_rd($sw));
         }
     };
  
@@ -138,12 +141,12 @@ sub schedule {
         sleep($self->{sleep_unit});
 
         # Check to see if scheduler_wait is positive.  If so, 
-        # go to sleep because all constraint waits are larger
-        # than scheduler_wait.
+        # go to sleep because all task waits are larger than 
+        # scheduler_wait.
 
         if ($scheduler_wait->get() > 0) { 
             $self->debug("nothing to schedule for " . 
-                "@{[$scheduler_wait->get()]} seconds, sleeping...");
+                $self->time_rd($scheduler_wait->get()) . ", sleeping...");
             sleep($scheduler_wait->get());
         }
 
@@ -151,7 +154,9 @@ sub schedule {
         # all constraints are met. This is section should end in
 
         TASK: 
-        for my $task (@$schedule) { 
+        for my $task (@$schedule) {
+
+            # print Dumper $task; 
 
             # A task has four components. A set of constraints, a
             # command to run when these constraints are met, the
@@ -163,6 +168,17 @@ sub schedule {
             my $command     = $$task{command};
             my $last_ran    = $$task{last_ran};
             my $uid         = $$task{_uid};
+            my $only_once   = $$task{only_once};
+
+            if ($last_ran > 0 and $only_once == 1) { 
+
+                # This task was supposed to run ``only_once'' and it has
+                # been run once before, so we will skip it.
+
+                $task_wait->set($$self{only_once_tw});
+                next TASK;
+
+            }
 
             $self->debug("((-- task = $command, last_ran = $last_ran, for user = $uid --))");
 
@@ -196,8 +212,9 @@ sub schedule {
 
                 if (not $met) { 
 
-                    # The constraint wasn't met. We'll set all_cns_met to 0
-                    # and see if we need to readjust wait time.
+                    # The constraint wasn't met. We'll set all_cns_met to
+                    # 0 and compare constraint wait with task_wait to see
+                    # if we need to readjust task_wait.
 
                     $self->debug("($constraint) unmet");
                     $all_cns_met = 0;
@@ -206,14 +223,16 @@ sub schedule {
 
                         # Task wait is largest of all constraint waits.
 
-                        $self->debug("($constraint) won't be met for $wait seconds");
+                        $self->debug("($constraint) won't be met for " . $self->time_rd($wait));
                         $task_wait->set($wait);
 
                     }
 
                 } else { 
  
-                    # The constraint has been met. 
+                    # The constraint has been met. Add a log notification.
+                    # We don't need to do anything. If all constraints are
+                    # met, all_cns_set will remain set to 1.
 
                     $self->debug("($constraint) met");
                    
@@ -223,19 +242,26 @@ sub schedule {
 
             if ($all_cns_met) { 
 
+                # All constraints met: the task is ready to run.
+
+                # Run the task now.
+
                 my $now = time();
                 $$task{_previous_run} = $now - $$task{last_ran};
-
                 $$task{last_ran} = $now;
                 my $rv = system($$task{command});
                 $$task{_last_rv} = $rv;
+
+                # Write the chrontab with updated last_ran value for the
+                # task only if the task is not an ``only_once'' task.
+
                 $self->write_chrontab($$task{_chrontab});
                
                 # Notify the email address.
                 if ($$task{notify}) { 
                     $self->notify($task, time() - $$task{last_ran});
                 }
-
+                
             }
     
         } # for - iterate over tasks
@@ -258,6 +284,8 @@ sub notify {
     # Sometimes /usr/lib won't be in path, so we look there first before
     # calling which()
 
+    my $success = $$task{_last_rv} == 0 ? 1 : 0;
+
     my $sendmail_path = '/usr/lib/sendmail';
     unless (-e $sendmail_path) { 
         $sendmail_path = $self->which('sendmail');
@@ -276,18 +304,21 @@ sub notify {
 
     $template .= "From: chronic\@localhost\n"; # FIX. username@host
     $template .= "To: $$task{notify}\n";
-    $template .= "Subject: [Chronic] Success: $$task{command}\n\n";
+    $template .= "Subject: [Chronic] Success: $$task{command}\n\n" if $success;
+    $template .= "Subject: [Chronic] Failure: $$task{command}\n\n" unless $success;
 
     # Body
 
-    $template .= "\nTask executed successfully.\n\n";
+    $template .= "Task executed successfully.\n\n" if $success;
+    $template .= "\nTask failed.\n\n" unless $success;
     $template .= sprintf("%20s: %s\n", "Task", $$task{command});
     $template .= sprintf("%20s: %s\n", "Executed at", scalar localtime());
-    $template .= sprintf("%20s: %s\n", "Run time", $self->time_readable($time) . ".");
+    $template .= sprintf("%20s: %s\n", "Run time", $self->time_rd($time) . ".");
     $template .= sprintf("%20s: %s\n", "Return Value", $$task{_last_rv});
     $template .= sprintf("%20s: %s\n", "UID", $$task{_uid});
-    $template .= sprintf("%20s: %s\n", "Previous run", $self->time_readable($$task{_previous_run}) . " ago.")
-            if exists $$task{_previous_run};
+    $template .= sprintf("%20s: %s\n", "Previous run", $self->time_rd($$task{_previous_run}) . " ago.")
+            if exists $$task{_previous_run} and $$task{only_once} == 0;
+    $template .= "\nThis was an ``only_once'' task.  It won't be rescheduled.\n" if $$task{only_once};
     $template .= "\nVirtually yours,\nChronic\n";
 
     open(SENDMAIL, "| $sendmail_path $$task{notify}");
@@ -301,7 +332,7 @@ sub notify {
 }
 
 
-sub time_readable { 
+sub time_rd { 
 
     my ($self, $seconds) = @_;
 
@@ -313,7 +344,7 @@ sub time_readable {
             return sprintf("%.2f hours", $hours);
         }
     } elsif ($seconds > 60) { 
-        return sprintf("%.2f minutes", $seconds/60);
+        return sprintf("%.1f minutes", $seconds/60);
     } 
 
     return "$seconds seconds";
@@ -322,5 +353,4 @@ sub time_readable {
 
 
 1;
-
 

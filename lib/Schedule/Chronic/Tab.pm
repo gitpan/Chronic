@@ -1,7 +1,7 @@
 ##
 ## Serialize schedule to chrontab and vice versa.
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Tab.pm,v 1.7 2004/06/04 08:17:51 hackworth Exp $
+## $Id: Tab.pm,v 1.10 2004/06/30 21:50:38 hackworth Exp $
 ## 
 
 
@@ -21,13 +21,13 @@ sub read_tabs {
 
     }
     
-    # A chrontab was not specified so we will find all appropriate
-    # chrontabs and load 'em up.
+    # A chrontab was not specified so we will find all
+    # appropriate chrontabs and load 'em up.
 
     if ($UID == 0) {         
 
-        # If the user is root, look for /etc/chrontab and then all
-        # user specific chrontabs.
+        # If the user is root, look for /etc/chrontab and then
+        # all user specific chrontabs.
 
         if (-e '/etc/chrontab') { 
             $self->read_chrontab('/etc/chrontab', 0);
@@ -35,12 +35,13 @@ sub read_tabs {
             $self->fatal("No chrontabs found.  Was exepecting one in /etc/chrontab.");
         }
 
-        # To look for user specific chrontabs, we need to walk over all
-        # the users in /etc/passwd and search for $HOME/.chrontab under
-        # their user directories. We also need to discover their UIDs. All
-        # this information is available in /etc/passwd.
-        # 
-        # FIX! 
+        # To look for user specific chrontabs, we need to walk
+        # over all the users in /etc/passwd and search for
+        # $HOME/.chrontab under their user directories. We also
+        # need to discover their UIDs. All this information is
+        # available in /etc/passwd.
+        #
+        # FIX!
 
     }  else { 
 
@@ -85,9 +86,11 @@ sub read_chrontab {
 
     my $last_entry = '';  # To keep track of continuations
     my $tasks = 0;
+    my $linecursor = 0;
 
     while ($_ = <TAB>) { 
 
+        $linecursor++;
         next unless /\S/;
         next if /^\s*#/;
         chomp;
@@ -171,10 +174,12 @@ sub read_chrontab {
             # Initialize the task.
             # 
             # Add a last_ran of 0 (execute soon as possible)
-            # if a last_ran is not available and create a 
-            # task_wait timer.
+            # if a last_ran is not available. Create a 
+            # task_wait timer and initialize other task 
+            # parameters.
 
             $task{last_ran} = 0 unless exists $task{last_ran};
+            $task{only_once} = 0 unless exists $task{only_once};
             $task{_task_wait} = new Schedule::Chronic::Timer ('down');
             $task{_task_wait}->set(0);
             $task{_uid} = $uid;
@@ -190,15 +195,13 @@ sub read_chrontab {
             # We should probably barf here and ask the user
             # to correct the error. FIX.
 
-            $self->debug("Syntax error in ``$entry''.");
+            $self->debug("Syntax error in line $linecursor of $tab - ignoring.");
 
         }
 
     }
 
     $self->debug("$tasks task(s) loaded.");
-
-    # print Dumper $self;
 
     close TAB;
 
@@ -224,6 +227,17 @@ sub write_chrontab {
             # skip over it.
 
             next;
+
+        }
+
+        if ($$task{only_once} == 1 and $$task{last_ran} > 0) { 
+
+            # This was an ``only_once'' task that has been
+            # executed once. Don't write back to the 
+            # chrontab.
+
+            next;
+
         }
 
         for my $key (keys %$task) {
@@ -256,9 +270,11 @@ sub write_chrontab {
 
             # All verbatim fields go here.
 
-            } elsif ($key eq 'last_ran' or $key eq 'notify') { 
+            } elsif ($key eq 'last_ran' or $key eq 'notify' or $key eq 'only_once') { 
 
-                print TAB "$key = $task->{$key}; ";
+                unless ($key eq 'only_once' and $task->{$key} == 0) { 
+                    print TAB "$key = $task->{$key}; ";
+                }
 
             } else { 
 

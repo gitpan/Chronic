@@ -6,38 +6,41 @@ Chronic - A constraints-based, opportunistic, application-level scheduler.
 =head1 DESCRIPTION
 
 Chronic is a constraints-based, opportunistic, application-level
-scheduler. Unlike cron, that schedules according to a time specification,
-Chronic schedules tasks when the specified constraints are met. In other
-words, Chronic schedules during a window of opportunity when the
-circumstances are favorable.
+scheduler. Unlike cron, that schedules according to a time
+specification, Chronic schedules tasks when the specified
+constraints are met. In other words, Chronic schedules during a
+window of opportunity when the circumstances are favorable.
 
-The original motivation for Chronic was for me to be able to schedule
-high-impact, recurring tasks like C<updatedb>, C<emerge rsync>,
-C<webalizer> when I was away from the computer. This proved to be useful
-enough to abstract the notion of a I<constraint> and build an
-opportunistic scheduler that schedules according to combinations of
-arbitrary constraints. The current version of Chronic natively contains
-System Inactivity, Disk I/O, Load Average, Frequency and Xscreensaver
-constraints. Network IO activity, cron (that emulates cron), and file
-alterations under a specified directory, are some of the constraints
-planned for a future release.
+The original motivation for Chronic was for me to be able to
+schedule high-impact, recurring tasks like C<updatedb>, C<emerge
+rsync>, C<webalizer> when I was away from the computer. This
+proved to be useful enough to abstract the notion of a
+I<constraint> and build an opportunistic scheduler that
+schedules according to combinations of arbitrary constraints.
+The current version of Chronic natively contains System
+Inactivity, Disk I/O, Load Average, Frequency and Xscreensaver
+constraints. Network IO activity, cron (that emulates cron), and
+file alterations under a specified directory, are some of the
+constraints planned for a future release.
 
 =head1 USAGE
 
-Chronic is implemented as a Unix daemon, C<chronicd>, that reads a
-C<chrontab> file and executes tasks specified therein. A system level
-C<chrontab> is placed in C</etc/chrontab> and user-specific C<chrontab>'s
-live in C<$HOME/.chrontab>. The only option C<chronicd> accepts at the
-moment is C<-fg> that instructs the application to run in foreground and
-print debugging messages.
+Chronic is implemented as a Unix daemon, C<chronicd>, that reads
+a C<chrontab> file and executes tasks specified therein. A
+system level C<chrontab> is placed in C</etc/chrontab> and
+user-specific C<chrontab>'s live in C<$HOME/.chrontab>. The only
+option C<chronicd> accepts at the moment is C<-fg> that
+instructs the application to run in foreground and print
+debugging messages.
 
 =head1 CHRONTAB FORMAT
 
-C<chrontab> contains a task per line. A task consists of a C<command> to
-be run, and one or more C<constraint>'s that must be met before the
-command is run. It should be noted that as of the current version, when
-more than one C<constraint> is provided for a task, they are C<AND>'ed
-together. The format of task specification is:
+C<chrontab> contains a task per line. A task consists of a
+C<command> to be run, and one or more C<constraint>'s that must
+be met before the command is run. It should be noted that as of
+the current version, when more than one C<constraint> is
+provided for a task, they are C<AND>'ed together. The format of
+task specification is:
 
     command = COMMAND; constraint = NAME, PARAMETERS; \ 
         constraint = NAME, PARAMETERS; ...;
@@ -47,90 +50,96 @@ together. The format of task specification is:
     command = "emerge rsync"; constraint = Freq, 86400; \
         constraint = Inactivity, 60;
 
-A task specification can be split on multiple lines using the "\"
-character. It should be noted that constraint names are case-sensitive
-(and correspond to chucks of code with the same name).
+A task specification can be split on multiple lines using the
+"\" character. It should be noted that constraint names are
+case-sensitive (and correspond to chucks of code with the
+same name).
 
 =head1 CONSTRAINTS 
 
-Chronic supports the following constraints in the current version. This
-list is likely to grow with future releases, so you should check this
-manpage after upgrading Chronic.
+Chronic supports the following constraints in the current
+version. This list is likely to grow with future releases, so
+you should check this manpage after upgrading Chronic.
 
 =over 4
 
 =item The C<Inactivity> Constraint
 
-The C<Inactivity> constraint monitors system activity and is met when the
-system is inactive for a specified amount of time. Inactivity takes one
-parameter: the number of seconds for which the system must be inactive
-before the constraint is met. The following task will run C<updatedb> when
-the system has been inactive for 120 seconds.
+The C<Inactivity> constraint monitors system activity and is met
+when the system is inactive for a specified amount of time.
+Inactivity takes one parameter: the number of seconds for which
+the system must be inactive before the constraint is met. The
+following task will run C<updatedb> when the system has been
+inactive for 120 seconds.
 
     command = "/usr/bin/updatedb"; constraint = Inactivity, 120;
 
-C<Inactivity> is a wrapper around the DiskIO and Loadavg constraints,
-described later in this section. The constraint's notion of inactivity
-should be appropriate for most systems. Otherwise, it is possible to tune
-the notion of inactivity using the DiskIO and Loadavg constraints.
+C<Inactivity> is a wrapper around the DiskIO and Loadavg
+constraints, described later in this section. The constraint's
+notion of inactivity should be appropriate for most systems.
+Otherwise, it is possible to tune the notion of inactivity using
+the DiskIO and Loadavg constraints.
 
 =item The C<Freq> Constraint
 
-The C<Freq> constraint specifies the maximum frequency of invocation of a
-task. C<Freq> requires one parameter, the number of seconds, that is the
-minimum difference between two consecutive invocations. So, C<Freq,
-86400> implies that the task should not be run more than once a day.
-C<Freq> is usually coupled with another constraint (eg: C<Inactivity>) to
+The C<Freq> constraint specifies the maximum frequency of
+invocation of a task. C<Freq> requires one parameter, the number
+of seconds, that is the minimum difference between two
+consecutive invocations. So, C<Freq, 86400> implies that the 
+task should not be run more than once a day.  C<Freq> is usually 
+coupled with another constraint (eg: C<Inactivity>) to
 limit the frequency of opportunistic scheduling. For example:
 
     command = "emerge rsync"; constraint = Inactivity, 120; \ 
         constraint = Freq, 86400;
 
-says, run "emerge rsync" once a day. However, if the system is not
-inactive for more than one day, "emerge rsync" won't be run till the
-system is inactive.
+says, run "emerge rsync" once a day. However, if the system is
+not inactive for more than one day, "emerge rsync" won't be run
+till the system is inactive.
 
 =item The C<Loadavg> Constraint
 
-The C<Loadavg> constraint monitors the load average of the system. It
-accepts two parameters: a load average threshold and the amount of time
-the system load should linger at or below the this threshold before the
-constraint is considered to be met. The syntax is C<Loadavg, TIME,
-LOADAVG>. eg. C<Loadavg, 60, 0.02> is met when the system has a
-load average of 0.02 or lower for 60 consecutive seconds. Here's an
-example of usage:
+The C<Loadavg> constraint monitors the load average of the
+system. It accepts two parameters: a load average threshold and
+the amount of time the system load should linger at or below the
+this threshold before the constraint is considered to be met.
+The syntax is C<Loadavg, TIME, LOADAVG>. eg. C<Loadavg, 60, 0.02> 
+is met when the system has a load average of 0.02 or lower 
+for 60 consecutive seconds. Here's an example of usage:
 
     command = "cd /home/user/project/; cvs update; make all"; \ 
         constraint = Loadavg, 60, 0.0; constraint = Freq, 3600;
 
-This task specifies invocation of CVS update under C</home/user/project/>
-and C<make> if the load average is 0.0 for 60 seconds. The C<Freq>
-constraint additionally limits the task to no more than once in 3600
-seconds (one hour).
+This task specifies invocation of CVS update under
+C</home/user/project/> and C<make> if the load average is 0.0
+for 60 seconds. The C<Freq> constraint additionally limits the
+task to no more than once in 3600 seconds (one hour).
 
 =item The C<DiskIO> Constraint
 
-The C<DiskIO> constraint monitors the disk read/write activity through
-the C<vmstat> program. It accepts three parameters: a threshold for number
-of blocks read from disk, a threshold for number of blocks written to
-disk and the amount of time for which read/write linger at or below these
-thresholds. C<DiskIO> syntax is C<DiskIO, TIME, BLOCKS WRITTEN, BLOCKS
-READ>. eg. C<DiskIO, 60, 10, 15> is met when 10 or less blocks are
-written to disk and 15 or less blocks are read from disk for 60
-consecutive seconds. Here's an example of usage: 
+The C<DiskIO> constraint monitors the disk read/write activity
+through the C<vmstat> program. It accepts three parameters: a
+threshold for number of blocks read from disk, a threshold for
+number of blocks written to disk and the amount of time for
+which read/write linger at or below these thresholds. C<DiskIO>
+syntax is C<DiskIO, TIME, BLOCKS WRITTEN, BLOCKS
+READ>. eg. C<DiskIO, 60, 10, 15> is met when 10 or less blocks
+READ>  are written to disk and 15 or less blocks are read from 
+disk for 60 consecutive seconds. Here's an example of usage:
 
     command = "/usr/bin/updatedb"; constraint = DiskIO, 60, 0, 0; \
         constraint = Freq, 3600;
 
 =item The C<Xscreensaver> Constraint
 
-The C<Xscreensaver> constraints asynchronously monitors Xscreensaver
-through the C<xscreensaver-command> program. It accepts one parameter: the
-number of seconds for which C<Xscreensaver> must be enabled before the
-constraint is met. The syntax for the constraint is C<Xscreensaver, TIME>.
-eg. C<Xscreensaver, 120> is met when C<Xscreensaver> is locked for 120 or
-more seconds. The constraint is considered to be met until the screensaver
-is unlocked. Here's an example of usage: 
+The C<Xscreensaver> constraints asynchronously monitors
+Xscreensaver through the C<xscreensaver-command> program. It
+accepts one parameter: the number of seconds for which
+C<Xscreensaver> must be enabled before the constraint is met.
+The syntax for the constraint is C<Xscreensaver, TIME>. eg.
+C<Xscreensaver, 120> is met when C<Xscreensaver> is locked for
+120 or more seconds. The constraint is considered to be met
+until the screensaver is unlocked. Here's an example of usage:
 
     command = "emerge rsync"; Constraint = Xscreensaver, 120; \
         constraint = Freq, 86400;
@@ -138,27 +147,54 @@ is unlocked. Here's an example of usage:
 =item The C<InXs> Constraint
 
 The C<InXs> constraint (unrelated to the POP band) combines the
-Xscreensaver and Inactivity constraints. It is met when B<either> of the
-constraints is met. C<InXs> is useful for scheduling high-load
-applications on end-user machines because it's a good indicator of the
-user being away from the computer. It accepts one parameter: the number of
-seconds for which either of the constraints is enabled before C<InXs> is
-met. The syntax for the constraint is C<InXs, TIME>. eg. C<InXs, 120>.
-Here's an example of usage:
+Xscreensaver and Inactivity constraints. It is met when
+B<either> of the constraints is met. C<InXs> is useful for
+scheduling high-load applications on end-user machines because
+it's a good indicator of the user being away from the computer.
+It accepts one parameter: the number of seconds for which either
+of the constraints is enabled before C<InXs> is met. The syntax
+for the constraint is C<InXs, TIME>. eg. C<InXs, 120>. Here's an
+example of usage:
 
     command = "emerge rsync"; Constraint = InXs, 120; \
         constraint = Freq, 86400;
 
+=back
+
+=head1 OTHER PARAMETERS
+
+In addition to C<command> and C<constraint> keys, a chrontab
+task entry can also have the following optional keys.
+
+=over 4
+
+=item notify
+
+C<notify> is used to specify a recipient for an email
+notification that is sent with the task is executed. This
+notification contains information on timing and status of the
+executed task. Syntax C<notify = admin@domain>.
+
+=item only_once
+
+C<only_once> is used to indicate that the task should be
+executed only once. Once executed, the scheduler will remove the
+task from the chrontab.
 
 =back
 
+=head1 HUP SIGNAL HANDLING
+
+Send a SIGHUP to chronicd to force it to re-read chrontabs.
+
 =head1 DISCLAIMER
 
-Chronic is alpha software and many a things are likely to change,
-introduced or improve in future releases. If you have anything you'd like
-Chronic to do (or do differently), please add a feature request on the
-sourceforge site, C<http://sourceforge.net/projects/chronic> or send mail
-to the author.
+Chronic is alpha software and many a things are likely to
+change, introduced or improve in future releases. If you have
+anything you'd like Chronic to do (or do differently), please
+add a feature request on the sourceforge site,
+C<http://sourceforge.net/projects/chronic> or send mail to
+the author.
 
 =head1 DOWNLOAD 
 
@@ -166,9 +202,11 @@ Chronic is distributed through Sourceforge,
 http://sourceforge.net/projects/chronic/, and CPAN,
 http://search.cpan.org/~vipul/Chronic/
 
-=head1 AUTHOR
+=head1 AUTHOR & LICENSE
 
 Vipul Ved Prakash, E<lt>mail@vipul.netE<gt>
+
+This software is distributed under the ARTISTIC license.
 
 =cut
 

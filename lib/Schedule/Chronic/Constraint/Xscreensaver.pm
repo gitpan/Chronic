@@ -1,7 +1,7 @@
 ##
 ## Xscreensaver constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Xscreensaver.pm,v 1.2 2004/05/16 03:08:42 hackworth Exp $
+## $Id: Xscreensaver.pm,v 1.3 2004/06/13 21:24:11 hackworth Exp $
 ##
 
 
@@ -41,6 +41,7 @@ sub init {
 
     $$self{watch} = new IO::File;
     $$self{pid}   = $$self{watch}->open("$xscrn -watch |");
+
     $$self{watch}->blocking(0);
     $$self{poll}  = new IO::Poll;
     $$self{poll}->mask($$self{watch} => POLLIN);
@@ -118,10 +119,10 @@ sub state {
     my $state;
     sysread($watch, $state, 256);
 
-    # If we lock and unlock rapidly, we can get both LOCK and UNBLANK
-    # notifications in one read. Due to this we look negative
-    # look-ahead assertions to ensure LOCK is not followed by UNBLABK
-    # and vice versa.
+    # If we lock and unlock rapidly, we can get both LOCK and
+    # UNBLANK notifications in one read. Due to this we look
+    # negative look-ahead assertions to ensure LOCK is not
+    # followed by UNBLABK and vice versa.
 
     my $state_i = 0;
 
@@ -149,13 +150,13 @@ sub DESTROY {
 
     my $self = shift;
 
-    # We must cleanup by killing off the xscreensaver-command process.
-    # Since the process only writes to STDOUT when a state change
-    # happens, closing the pipe will not result in a SIGPIPE till the
-    # next state change occurs, and concequently our process will
-    # wait() on the child process to terminate. We are going to send a
-    # SIGTERM to the process manually when we are ready to shutdown
-    # cleanly.
+    # We must cleanup by killing off the xscreensaver-command
+    # process. Since the process only writes to STDOUT when a
+    # state change happens, closing the pipe will not result in
+    # a SIGPIPE till the next state change occurs, and
+    # concequently our process will wait() on the child process
+    # to terminate. We are going to send a SIGTERM to the
+    # process manually when we are ready to shutdown.
 
     kill(9, $$self{pid});
     $$self{watch}->close();
