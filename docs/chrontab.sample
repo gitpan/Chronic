@@ -1,0 +1,2 @@
+command = "emerge rsync"; constraint = DiskIO, 10, 20, 20; constraint = Loadavg, 20, 0.02; constraint = Freq, 84600;
+command = "ls"; constraint = Freq, 60;

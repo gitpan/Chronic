@@ -1,0 +1,65 @@
+#!/usr/bin/perl -sw 
+##
+## chronic - a cron like daemon that schedules tasks when the 
+##            the user is away and the system idle.
+##
+## Author: Vipul Ved Prakash <mail@vipul.net>.
+## $Id: chronicd,v 1.2 2004/05/07 01:44:11 hackworth Exp $
+
+
+# Load Average monitor.  Like all monitor classes, provides 
+# a is_inactive() method. 
+
+package main;
+use POSIX;
+use lib qw(lib);
+use Schedule::Chronic;
+use Schedule::Chronic::Tab;
+
+my $chronic;
+
+$fg ||= 0;
+
+my $crontab = shift @ARGV;
+
+if ($crontab) { 
+    unless (-e $crontab) { 
+        die "``$crontab'' does not exist.\n";
+    }
+}
+
+
+if ($fg) { 
+    
+    # Run in foreground
+    $chronic = new Schedule::Chronic;
+
+} else { 
+
+    chdir '/';
+    fork && exit;
+    POSIX::setsid;
+
+    $chronic = new Schedule::Chronic ( debug => 0 );
+
+}
+
+$chronic->read_tabs($crontab);
+$chronic->load_cns_for_schedule();
+$chronic->schedule();
+
+
+## TODO 
+##
+## 1. keep a pid file 
+## 2. freq of -1 should indicate do this once
+## 3. an app `lazyadd' that provides an easy way 
+##    to add commands to chrontab, specially
+##    one time commands. should capture environment
+## 4. log when the commands were run
+## 5. read /etc/chrontab
+## 6. write man page
+## 7. A monitor that graphs system activity over a few days
+##    and suggests thresholds 
+
+
