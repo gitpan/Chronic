@@ -1,7 +1,7 @@
 ##
 ## Serialize schedule to chrontab and vice versa.
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Tab.pm,v 1.6 2004/05/16 03:09:33 hackworth Exp $
+## $Id: Tab.pm,v 1.7 2004/06/04 08:17:51 hackworth Exp $
 ## 
 
 
@@ -179,6 +179,7 @@ sub read_chrontab {
             $task{_task_wait}->set(0);
             $task{_uid} = $uid;
             $task{_chrontab} = $tab;
+            $task{_last_rv} = 0;
 
             push @{$self->{_schedule}}, {%task};
             $tasks++;
@@ -257,7 +258,7 @@ sub write_chrontab {
 
             } elsif ($key eq 'last_ran' or $key eq 'notify') { 
 
-                print TAB "$key = $task->{$key}";
+                print TAB "$key = $task->{$key}; ";
 
             } else { 
 

@@ -1,6 +1,29 @@
-$Id: CHANGES,v 1.2 2004/05/16 03:07:18 hackworth Exp $
+$Id: CHANGES,v 1.4 2004/06/04 21:55:27 hackworth Exp $
 
-0.10
+0.15 (June 04, 2004) 
+
+    - Introduced the "InXs" constraint that combines the Inactivity
+      constraint and the Xscreensaver constraint using an OR 
+      relationship.
+
+    - Scheduler wait doesn't exceed 10 minutes. This is because a
+      machine can hibernate (or chronicd backgrounded) in middle of a
+      long sleep. causing scheduler_wait to exceed the intended sleep
+      time. An upper limit ensure that chronicd will "self-correct" its
+      timers every 10 minutes.
+
+    - Added support for email notifications. notify = email@address as a
+      task field will send notifications to email@address. Time values in
+      the email notification are in human readable format. eg. 35 seconds,
+      4.52 days, etc.  [Feature Request 946816]
+
+    - Fixed a bug in chrontab re-writing logic. We were missing the final
+      ";" which could've caused a corrupted chrontab in certain cases.
+
+    - Added a template constraint module under the docs directory. The
+      template will act as a starting point for writing new constraints.
+
+0.10 (May 15, 2004)
 
     - Introduced a Xscreensaver constraint that is met when Xscreensaver
       is locked for a specified amount of time. chonicd manpage updated

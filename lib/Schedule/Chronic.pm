@@ -1,6 +1,6 @@
 # Constraint-based, opportunistic scheduler.
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Chronic.pm,v 1.5 2004/05/08 05:19:48 hackworth Exp $
+## $Id: Chronic.pm,v 1.7 2004/06/04 21:34:32 hackworth Exp $
 
 package Schedule::Chronic; 
 use base qw(Schedule::Chronic::Base Schedule::Chronic::Tab);
@@ -15,6 +15,8 @@ sub new {
 
     $self{sleep_unit}           ||= 1;      # seconds
     $self{scheduler_wait}       = new Schedule::Chronic::Timer ('down');
+    $self{var}                  ||= '/var/run';
+    $self{max_sw}               = 10 * 60;  # 10 minutes
 
     unless (exists $self{debug}) {
         $self{debug} = 1;
@@ -121,8 +123,11 @@ sub schedule {
                 $sw = $$task{_task_wait}->get();;
             }
         }
-        $scheduler_wait->set($sw);
-        $self->debug("scheduler_wait: set to $sw");
+        $sw = $self->{max_sw} if $sw > $self->{max_sw};
+        if ($sw > 0) { 
+            $scheduler_wait->set($sw);
+            $self->debug("scheduler_wait: set to $sw");
+        }
     };
  
     $self->debug("entering scheduler loop...");
@@ -200,13 +205,10 @@ sub schedule {
                     if ($wait != 0 && $wait > $task_wait->get()) { 
 
                         # Task wait is largest of all constraint waits.
-                        # Maybe the recomupute shdeuler wait should be 
-                        # done at the end of the task loop? 
 
                         $self->debug("($constraint) won't be met for $wait seconds");
                         $task_wait->set($wait);
-                        &$recompute_scheduler_wait();
-                
+
                     }
 
                 } else { 
@@ -221,15 +223,100 @@ sub schedule {
 
             if ($all_cns_met) { 
 
-                $$task{last_ran} = time();
-                $self->write_chrontab($$task{_chrontab});
-                system($$task{command});
+                my $now = time();
+                $$task{_previous_run} = $now - $$task{last_ran};
 
-            } 
+                $$task{last_ran} = $now;
+                my $rv = system($$task{command});
+                $$task{_last_rv} = $rv;
+                $self->write_chrontab($$task{_chrontab});
+               
+                # Notify the email address.
+                if ($$task{notify}) { 
+                    $self->notify($task, time() - $$task{last_ran});
+                }
+
+            }
     
         } # for - iterate over tasks
 
+        # Compute the schedular wait before going through the next
+        # cycle. Scheduler wait is set only if the largest
+        # task_wait is > 0.
+
+        &$recompute_scheduler_wait();
+
     } # while - scheduler loop
+
+}
+
+
+sub notify { 
+
+    my ($self, $task, $time) = @_;
+
+    # Sometimes /usr/lib won't be in path, so we look there first before
+    # calling which()
+
+    my $sendmail_path = '/usr/lib/sendmail';
+    unless (-e $sendmail_path) { 
+        $sendmail_path = $self->which('sendmail');
+    } 
+
+    unless ($sendmail_path) { 
+        $self->debug("``sendmail'' not found, can't notify");
+        return;
+    }
+
+    $self->debug("sending notification to $$task{notify}");
+
+    my $template; 
+
+    # Headers
+
+    $template .= "From: chronic\@localhost\n"; # FIX. username@host
+    $template .= "To: $$task{notify}\n";
+    $template .= "Subject: [Chronic] Success: $$task{command}\n\n";
+
+    # Body
+
+    $template .= "\nTask executed successfully.\n\n";
+    $template .= sprintf("%20s: %s\n", "Task", $$task{command});
+    $template .= sprintf("%20s: %s\n", "Executed at", scalar localtime());
+    $template .= sprintf("%20s: %s\n", "Run time", $self->time_readable($time) . ".");
+    $template .= sprintf("%20s: %s\n", "Return Value", $$task{_last_rv});
+    $template .= sprintf("%20s: %s\n", "UID", $$task{_uid});
+    $template .= sprintf("%20s: %s\n", "Previous run", $self->time_readable($$task{_previous_run}) . " ago.")
+            if exists $$task{_previous_run};
+    $template .= "\nVirtually yours,\nChronic\n";
+
+    open(SENDMAIL, "| $sendmail_path $$task{notify}");
+    print SENDMAIL $template; 
+    print SENDMAIL ".\n";
+    
+    close SENDMAIL;
+
+    return $self;
+
+}
+
+
+sub time_readable { 
+
+    my ($self, $seconds) = @_;
+
+    if ($seconds > 3600) { 
+        my $hours = $seconds / 3600;
+        if ($hours > 24) { 
+            return sprintf("%.2f days", $hours/24);
+        } else { 
+            return sprintf("%.2f hours", $hours);
+        }
+    } elsif ($seconds > 60) { 
+        return sprintf("%.2f minutes", $seconds/60);
+    } 
+
+    return "$seconds seconds";
 
 }
 

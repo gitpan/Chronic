@@ -17,14 +17,14 @@ C<webalizer> when I was away from the computer. This proved to be useful
 enough to abstract the notion of a I<constraint> and build an
 opportunistic scheduler that schedules according to combinations of
 arbitrary constraints. The current version of Chronic natively contains
-the following constraints: System Inactivity, Disk I/O, Load Average,
-Frequency and Xscreensaver. Other constraints planned for near future
-include: Network IO activity, cron (which emulates cron), and file
-alterations under a specified directory.
+System Inactivity, Disk I/O, Load Average, Frequency and Xscreensaver
+constraints. Network IO activity, cron (that emulates cron), and file
+alterations under a specified directory, are some of the constraints
+planned for a future release.
 
 =head1 USAGE
 
-Chronic is implemented as a unix daemon, C<chronicd> that reads a
+Chronic is implemented as a Unix daemon, C<chronicd>, that reads a
 C<chrontab> file and executes tasks specified therein. A system level
 C<chrontab> is placed in C</etc/chrontab> and user-specific C<chrontab>'s
 live in C<$HOME/.chrontab>. The only option C<chronicd> accepts at the
@@ -35,10 +35,12 @@ print debugging messages.
 
 C<chrontab> contains a task per line. A task consists of a C<command> to
 be run, and one or more C<constraint>'s that must be met before the
-command is run. The format of task specification is:
+command is run. It should be noted that as of the current version, when
+more than one C<constraint> is provided for a task, they are C<AND>'ed
+together. The format of task specification is:
 
     command = COMMAND; constraint = NAME, PARAMETERS; \ 
-        constraint = NAME, PARAMETERS;
+        constraint = NAME, PARAMETERS; ...;
 
     eg: 
 
@@ -132,6 +134,21 @@ is unlocked. Here's an example of usage:
 
     command = "emerge rsync"; Constraint = Xscreensaver, 120; \
         constraint = Freq, 86400;
+
+=item The C<InXs> Constraint
+
+The C<InXs> constraint (unrelated to the POP band) combines the
+Xscreensaver and Inactivity constraints. It is met when B<either> of the
+constraints is met. C<InXs> is useful for scheduling high-load
+applications on end-user machines because it's a good indicator of the
+user being away from the computer. It accepts one parameter: the number of
+seconds for which either of the constraints is enabled before C<InXs> is
+met. The syntax for the constraint is C<InXs, TIME>. eg. C<InXs, 120>.
+Here's an example of usage:
+
+    command = "emerge rsync"; Constraint = InXs, 120; \
+        constraint = Freq, 86400;
+
 
 =back
 
