@@ -17,10 +17,10 @@ C<webalizer> when I was away from the computer. This proved to be useful
 enough to abstract the notion of a I<constraint> and build an
 opportunistic scheduler that schedules according to combinations of
 arbitrary constraints. The current version of Chronic natively contains
-the following constraints: System Inactivity, Disk I/O & Load Average.
-Other constraints planned for near future include: Network IO activity,
-cron (which emulates cron), and file alterations under a specified
-directory.
+the following constraints: System Inactivity, Disk I/O, Load Average,
+Frequency and Xscreensaver. Other constraints planned for near future
+include: Network IO activity, cron (which emulates cron), and file
+alterations under a specified directory.
 
 =head1 USAGE
 
@@ -109,7 +109,7 @@ seconds (one hour).
 =item The C<DiskIO> Constraint
 
 The C<DiskIO> constraint monitors the disk read/write activity through
-the C<vmstat> program. It accepts three parameters: a theshold for number
+the C<vmstat> program. It accepts three parameters: a threshold for number
 of blocks read from disk, a threshold for number of blocks written to
 disk and the amount of time for which read/write linger at or below these
 thresholds. C<DiskIO> syntax is C<DiskIO, TIME, BLOCKS WRITTEN, BLOCKS
@@ -120,6 +120,21 @@ consecutive seconds. Here's an example of usage:
     command = "/usr/bin/updatedb"; constraint = DiskIO, 60, 0, 0; \
         constraint = Freq, 3600;
 
+=item The C<Xscreensaver> Constraint
+
+The C<Xscreensaver> constraints asynchronously monitors Xscreensaver
+through the C<xscreensaver-command> program. It accepts one parameter: the
+number of seconds for which C<Xscreensaver> must be enabled before the
+constraint is met. The syntax for the constraint is C<Xscreensaver, TIME>.
+eg. C<Xscreensaver, 120> is met when C<Xscreensaver> is locked for 120 or
+more seconds. The constraint is considered to be met until the screensaver
+is unlocked. Here's an example of usage: 
+
+    command = "emerge rsync"; Constraint = Xscreensaver, 120; \
+        constraint = Freq, 86400;
+
+=back
+
 =head1 DISCLAIMER
 
 Chronic is alpha software and many a things are likely to change,
@@ -128,7 +143,11 @@ Chronic to do (or do differently), please add a feature request on the
 sourceforge site, C<http://sourceforge.net/projects/chronic> or send mail
 to the author.
 
-=back
+=head1 DOWNLOAD 
+
+Chronic is distributed through Sourceforge,
+http://sourceforge.net/projects/chronic/, and CPAN,
+http://search.cpan.org/~vipul/Chronic/
 
 =head1 AUTHOR
 

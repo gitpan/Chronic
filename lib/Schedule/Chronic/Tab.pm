@@ -1,7 +1,7 @@
 ##
 ## Serialize schedule to chrontab and vice versa.
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Tab.pm,v 1.5 2004/05/12 05:10:28 hackworth Exp $
+## $Id: Tab.pm,v 1.6 2004/05/16 03:09:33 hackworth Exp $
 ## 
 
 
@@ -16,7 +16,7 @@ sub read_tabs {
     if ($tab) { 
 
         # Read the specified chrontab
-        $self->read_chrontab($tab);
+        $self->read_chrontab($tab, $UID);
         return $self;
 
     }

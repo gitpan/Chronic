@@ -1,4 +1,4 @@
-$Id: README,v 1.2 2004/05/06 00:15:40 hackworth Exp $
+$Id: README,v 1.3 2004/05/16 03:07:52 hackworth Exp $
 
 
                                Chronic 
@@ -56,12 +56,7 @@ Installation
 
 Usage 
 
-    Chronic tasks and constraints are specified in a ``chrontab'' file
-    located either in /etc/chrontab or under $HOME/.chrontab. A sample
-    chrontab is located under the docs directory inside the Chronic
-    distribution.
-
-    For further help, see the chronicd manpage.
+    See the chronicd manpage, or perlpod docs/chronicd.pod
 
 
 Author
