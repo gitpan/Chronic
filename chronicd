@@ -4,7 +4,7 @@
 ##            the user is away and the system idle.
 ##
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: chronicd,v 1.6 2004/06/30 21:52:20 hackworth Exp $
+## $Id: chronicd,v 1.8 2004/07/26 23:11:33 hackworth Exp $
 
 # Most of the Chronic code lives in the libs (under lib/).
 # Schedule::Chronic contains the scheduler, Schedule::Chronic::Tab
@@ -45,25 +45,19 @@ if ($crontab) {
 }
 
 
-# Background self if invoked in daemon mode.
-
-unless ($fg) { 
-
-    chdir '/';
-    fork && exit;
-    POSIX::setsid;
-}
-
-
 # $chronic will hold the scheduler object. 
 
 my $chronic;
 
+my $firsttime = 1;
 sub engage { 
 
-    $chronic = new Schedule::Chronic ( debug => $fg ? 1 : 0 );
+    $chronic = new Schedule::Chronic ( debug => $fg ? 1 : 0, logtype => $fg ? 'stderr' : 'syslog' );
     $chronic->read_tabs($crontab);
     $chronic->load_cns_for_schedule();
+    if (!$fg and $firsttime) { chdir '/'; fork && exit; POSIX::setsid; }
+    $firsttime++;
+    $chronic->getpid();
     $chronic->schedule();
 
 }
@@ -72,7 +66,17 @@ sub engage {
 # Install the HUP signal to re-engage. We lose ~44 Kb on each
 # HUP. Debug and FIX!
 
-sub hup_handle { $chronic = undef; engage(); }
+my $pending_hup = 0;
+
+sub hup_handle { 
+    if ($chronic->{nohup}) { 
+        $chronic->{pending_hup} = 1;
+        return;
+    }
+    $chronic = undef; 
+    engage(); 
+}
+
 
 my $sigset = POSIX::SigSet->new();
 my $action = POSIX::SigAction->new('hup_handle', $sigset, &POSIX::SA_NODEFER);

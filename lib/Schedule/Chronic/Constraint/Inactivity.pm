@@ -1,7 +1,7 @@
 ##
 ## Detect System Inactivity
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Inactivity.pm,v 1.2 2004/05/05 23:46:42 hackworth Exp $
+## $Id: Inactivity.pm,v 1.3 2004/07/15 21:11:08 hackworth Exp $
 ##
 
 package Schedule::Chronic::Constraint::Inactivity;
@@ -13,13 +13,12 @@ use base qw(Schedule::Chronic::Base);
 
 sub new { 
 
-    my ($class, $debug) = @_;
+    my ($class) = @_;
 
     return bless {
 
         loadavg => new Schedule::Chronic::Constraint::Loadavg ($debug),
         diskio  => new Schedule::Chronic::Constraint::DiskIO  ($debug),
-        debug   => $debug,
 
         # This class doesn't have its own timer. Timers are maintained by
         # DiskIO and Loadavg.
@@ -31,11 +30,12 @@ sub new {
 
 sub init { 
 
-    my ($self, $schedule, $task, $active) = @_;
+    my ($self, $schedule, $task, $logger, $active) = @_;
     return unless ref $self;
    
-    $$self{loadavg}->init($schedule, $task, $active);
-    $$self{diskio}->init($schedule, $task, $active);
+    $$self{loadavg}->init($schedule, $task, $logger, $active);
+    $$self{diskio}->init($schedule, $task, $logger, $active);
+    $$self{logger} = $logger;
 
     return $self;
 

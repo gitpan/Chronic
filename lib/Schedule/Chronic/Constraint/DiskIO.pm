@@ -1,7 +1,7 @@
 ##
 ## DiskIO constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: DiskIO.pm,v 1.4 2004/05/06 00:17:11 hackworth Exp $
+## $Id: DiskIO.pm,v 1.6 2004/08/15 21:01:48 hackworth Exp $
 ##
 
 
@@ -13,13 +13,12 @@ use base qw(Schedule::Chronic::Base);
 
 sub new { 
     
-    my ($class, $debug) = @_;
+    my ($class) = @_;
 
     return bless { 
         bi_threshold => 5,
         bo_threshold => 5,
         active       => 10,
-        debug        => $debug,
         timer        => new Schedule::Chronic::Timer ('down'),
     }, $class;
 
@@ -28,7 +27,7 @@ sub new {
 
 sub init { 
 
-    my ($self, $schedule, $task, $active, $bi_threshold, $bo_threshold) = @_;
+    my ($self, $schedule, $task, $logger, $active, $bi_threshold, $bo_threshold) = @_;
     return unless $self; 
 
     $$self{schedule}     = $schedule        if $schedule;
@@ -36,6 +35,7 @@ sub init {
     $$self{active}       = $active          if $active;
     $$self{bi_threshold} = $bi_threshold    if $bi_threshold;
     $$self{bo_threshold} = $bo_threshold    if $bo_threshold;
+    $$self{logger}       = $logger;
 
     return $self;
 
@@ -74,10 +74,11 @@ sub state {
 
     my ($self) = @_;
 
-    # We should use the proc file system 
-    # (/proc/stat) to gather this information.
-    # We shouldn't depend on existence of 
-    # vmstat. 
+    # Should we use the proc file system (/proc/stat) to gather
+    # this information? Doesn't seem like a good idea to depend
+    # on existence of vmstat. On the other hand for OSes that
+    # don't have a proc filesystem, vmstat might be more
+    # dependable. This requires more research.
 
     my @vmstat = `vmstat 1 2`;
 

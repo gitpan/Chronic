@@ -1,4 +1,30 @@
-$Id: CHANGES,v 1.5 2004/06/30 21:52:55 hackworth Exp $
+$Id: CHANGES,v 1.7 2004/08/19 00:24:58 hackworth Exp $
+
+0.25 (August 18, 2004)
+
+    - emerge-later, an application that adds packages to be
+      emerged (using Gentoo's package manager - emerge) to
+      system chrontab as only_once tasks, was added to the
+      distribution.
+
+    - Syslog support was introduced. When invoked in the
+      background mode (which is the default), chronicd will log
+      to Syslog's daemon facility with 'debug' and 'info'
+      priorities. The logging format was also changed to improve
+      clarity. [Feature Request #947137]
+
+    - SIGHUP handling was augmented to defer signals
+      during task execution since tasks can't be safely
+      interrupted. HUP is turned off before execution and
+      replyed once the task is finished running.
+
+    - The scheduling algorithm was modified such that scheduler
+      sleeps are completely controlled by ``wait'' times
+      returned by constraints; the scheduler does not sleep for
+      a ``timestep'' like it used to. The scheduler can also
+      function when there are no tasks in the chrontab; it will
+      simply sleep till a task arrives.
+
 
 0.20 (June 30, 2004)
 
@@ -33,7 +59,7 @@ $Id: CHANGES,v 1.5 2004/06/30 21:52:55 hackworth Exp $
       email@address as a task field will send notifications to
       email@address. Time values in the email notification are
       in human readable format. eg. 35 seconds, 4.52 days, etc. 
-      [Feature Request 946816]
+      [Feature Request #946816]
 
     - Fixed a bug in chrontab re-writing logic. We were missing
       the final ";" which could've caused a corrupted chrontab

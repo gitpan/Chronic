@@ -1,7 +1,7 @@
 ##
 ## Detect System Inactivity or Xscreensaved Locking
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: InXs.pm,v 1.1 2004/06/04 21:10:57 hackworth Exp $
+## $Id: InXs.pm,v 1.2 2004/07/15 21:11:07 hackworth Exp $
 ##
 
 package Schedule::Chronic::Constraint::InXs;
@@ -13,11 +13,10 @@ use base qw(Schedule::Chronic::Base);
 
 sub new { 
 
-    my ($class, $debug) = @_;
+    my ($class) = @_;
 
     return bless {
 
-        debug        => $debug,
         inactivity   => new Schedule::Chronic::Constraint::Inactivity   ($debug),
         xscreensaver => new Schedule::Chronic::Constraint::Xscreensaver ($debug),
 
@@ -28,11 +27,12 @@ sub new {
 
 sub init { 
 
-    my ($self, $schedule, $task, $active) = @_;
+    my ($self, $schedule, $task, $logger, $active) = @_;
     return unless ref $self;
    
-    $$self{inactivity}->init($schedule, $task, $active);
-    $$self{xscreensaver}->init($schedule, $task, $active);
+    $$self{inactivity}->init($schedule, $task, $logger, $active);
+    $$self{xscreensaver}->init($schedule, $task, $logger, $active);
+    $$self{logger} = $logger;
 
     return $self;
 

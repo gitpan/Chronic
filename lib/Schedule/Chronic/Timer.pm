@@ -1,7 +1,7 @@
 ##
 ## Timer Class for Chronic Scheduler
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Timer.pm,v 1.1.1.1 2004/05/04 20:35:28 hackworth Exp $
+## $Id: Timer.pm,v 1.2 2004/08/15 21:02:36 hackworth Exp $
 
 package Schedule::Chronic::Timer; 
 
@@ -67,13 +67,10 @@ sub get {
         return $self->{value};
     }
 
-#    return $ticks > 0 ? $ticks : 0;
      return $ticks;
 
 }
 
 
 1;
-
-
 

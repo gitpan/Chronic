@@ -1,7 +1,7 @@
 ##
 ## Xscreensaver constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Xscreensaver.pm,v 1.3 2004/06/13 21:24:11 hackworth Exp $
+## $Id: Xscreensaver.pm,v 1.5 2004/08/15 21:10:03 hackworth Exp $
 ##
 
 
@@ -10,16 +10,16 @@ use Schedule::Chronic::Base;
 use Schedule::Chronic::Timer;
 use IO::File;
 use IO::Poll;
+use Data::Dumper;
 use base qw(Schedule::Chronic::Base);
 
 
 sub new { 
     
-    my ($class, $debug) = @_;
+    my ($class) = @_;
 
     return bless { 
         active       => 10,
-        debug        => $debug,
         wait         => 5,
         timer        => new Schedule::Chronic::Timer ('down'),
     }, $class;
@@ -29,12 +29,13 @@ sub new {
 
 sub init { 
 
-    my ($self, $schedule, $task, $active) = @_;
+    my ($self, $schedule, $task, $logger, $active) = @_;
     return unless $self; 
 
     $$self{schedule}     = $schedule        if $schedule;
     $$self{task}         = $task            if $task;
     $$self{active}       = $active          if $active;
+    $$self{logger}       = $logger;
 
     my $xscrn = $self->which("xscreensaver-command");
     return unless $xscrn;
@@ -64,7 +65,7 @@ sub met {
 
     my @states = ('NO CHANGE', 'LOCKED', 'UNLOCKED');
 
-    $self->debug("state = $states[$state]");
+    $self->debug("  xscreensaver state = $states[$state]");
 
     if ($$self{timer}->running() and $state == 0) { 
         
@@ -74,7 +75,7 @@ sub met {
             return 1;
         } else { 
             $$self{wait} = $$self{timer}->get();
-            $self->debug("xscreensaver locked, " . $$self{timer}->get() . " seconds remain.");
+            $self->debug("  xscreensaver locked, " . $$self{timer}->get() . " seconds remain.");
             return 0;
         }
 
@@ -117,6 +118,7 @@ sub state {
     
     my $watch = $readers[0];
     my $state;
+    return 0 unless $watch;
     sysread($watch, $state, 256);
 
     # If we lock and unlock rapidly, we can get both LOCK and
@@ -159,7 +161,7 @@ sub DESTROY {
     # process manually when we are ready to shutdown.
 
     kill(9, $$self{pid});
-    $$self{watch}->close();
+    $$self{watch}->close() if $$self{watch};
 
 }
 

@@ -1,7 +1,7 @@
 ##
 ## Load Average Constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Freq.pm,v 1.3 2004/06/30 21:53:21 hackworth Exp $
+## $Id: Freq.pm,v 1.5 2004/08/15 21:01:48 hackworth Exp $
 ##
 
 package Schedule::Chronic::Constraint::Freq;
@@ -14,28 +14,26 @@ use base qw(Schedule::Chronic::Base);
 #       constraint module.
 
 
-sub new { 
-    my ($class, $debug) = @_;
-    return bless { 
-        debug => $debug, 
-    }, $class;
+sub new {
+    return bless {}, shift;
 }
 
 
 sub init { 
 
-    my ($self, $schedule, $task, $seconds) = @_;
+    my ($self, $schedule, $task, $logger, $seconds) = @_;
 
     # @args can be: 
     # 86400
     # 86400, Force
     # Force is not implemented
-   
+
     $$self{schedule}  = $schedule; 
     $$self{task}      = $task;
-    $$self{seconds}   = $seconds;
+    $$self{logger}    = $logger;
 
-    $$self{wait}     = 0;
+    $$self{seconds}   = $seconds;
+    $$self{wait}      = 0;
 
     return $self;
 
@@ -48,17 +46,11 @@ sub met {
 
     return 1 if $$self{task}{last_ran} == 0;
     $$self{wait} = $$self{task}{last_ran} - (time() - $$self{seconds});
-   return 1 if ($$self{wait} < 0);
+    return 1 if ($$self{wait} < 0);
     return 0;
     
 }
 
-
-sub state { 
-
-    return $_->[0]->{wait};
-
-}
 
 sub wait { 
 

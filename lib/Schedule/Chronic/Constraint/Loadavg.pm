@@ -1,7 +1,7 @@
 ##
 ## Load Average Constraint
 ## Author: Vipul Ved Prakash <mail@vipul.net>.
-## $Id: Loadavg.pm,v 1.4 2004/05/05 23:46:04 hackworth Exp $
+## $Id: Loadavg.pm,v 1.6 2004/08/15 21:03:35 hackworth Exp $
 ##
 
 package Schedule::Chronic::Constraint::Loadavg;
@@ -12,11 +12,10 @@ use base qw(Schedule::Chronic::Base);
 
 sub new { 
     
-    my ($class, $debug) = @_;
+    my ($class) = @_;
 
     return bless { 
         active       => 60,
-        debug        => $debug,
         load_avg     => 0.00,
         timer        => new Schedule::Chronic::Timer ('down'),
     }, $class;
@@ -26,13 +25,14 @@ sub new {
 
 sub init { 
 
-    my ($self, $schedule, $task, $active, $load_avg) = @_;
+    my ($self, $schedule, $task, $logger, $active, $load_avg) = @_;
     return unless ref $self;
    
     $$self{schedule}  = $schedule; 
     $$self{task}      = $task;
     $$self{active}    = $active     if $active;
     $$self{load_avg}  = $load_avg   if $load_avg;
+    $$self{logger}    = $logger;
 
     return $self;
 
@@ -45,7 +45,7 @@ sub met {
 
     my $load_avg = $self->state();
 
-    $self->debug("load average = $load_avg ($$self{load_avg})");
+    $self->debug("  load average = $load_avg ($$self{load_avg})");
 
     if ($load_avg <= $$self{load_avg}) { 
 

@@ -1,12 +1,13 @@
 #
 # Constraint-based, opportunistic scheduler.
 # Author: Vipul Ved Prakash <mail@vipul.net>.
-# $Id: Chronic.pm,v 1.10 2004/06/30 21:49:47 hackworth Exp $
+# $Id: Chronic.pm,v 1.13 2004/08/02 08:27:01 hackworth Exp $
 #
 
 package Schedule::Chronic; 
 use base qw(Schedule::Chronic::Base Schedule::Chronic::Tab);
 use Schedule::Chronic::Timer;
+use Schedule::Chronic::Logger;
 use Data::Dumper;
 
 
@@ -20,6 +21,9 @@ sub new {
     $self{var}                  ||= '/var/run';
     $self{max_sw}               = 10 * 60;  # 10 minutes
     $self{only_once_tw}         = 10 * 365 * 24 * 3600; # 10 years
+    $self{logger}               = new Schedule::Chronic::Logger (type => $args{logtype});
+    $self{nohup}                = 0;
+    $self{pending_hup}          = 0;
 
     unless (exists $self{debug}) {
         $self{debug} = 1;
@@ -61,9 +65,10 @@ sub load_cns_for_task {
 
     for my $constraint (keys %$constraints) { 
 
-        # Load the module corresponding to the constraint from disk.
-        # Die with a FATAL error if the module is not loaded. This
-        # behaviour should be configurable through a data member.
+        # Load the module corresponding to the constraint from
+        # disk. Die with a FATAL error if the module is not
+        # loaded. This behaviour should be configurable through
+        # a data member.
 
         my $module = "Schedule::Chronic::Constraint::$constraint";
         eval "require $module; use $module";
@@ -74,17 +79,17 @@ sub load_cns_for_task {
             }
         }
 
-        # Call the constructor and then the init() method to pass the
-        # constraint object a copy of schedule, task and
-        # thresholds/parameters supplied by the user. Save the
-        # constraint object under the constraint key.
+        # Call the constructor and then the init() method to
+        # pass the constraint object a copy of schedule, task
+        # and thresholds/parameters supplied by the user. Save
+        # the constraint object under the constraint key.
 
-        my $constructor = "$module->new(debug => $$self{debug})";
+        my $constructor = "$module->new()";
         $task->{constraints}->{$constraint}->{_object} = eval $constructor or die $!;
         my $object = $task->{constraints}->{$constraint}->{_object};
 
         my $init = $object->init (
-             $$self{_schedule}, $task, 
+             $$self{_schedule}, $task, $$self{logger},
                 @{$task->{constraints}->{$constraint}->{thresholds}}
         );
 
@@ -106,7 +111,6 @@ sub load_cns_for_task {
 }
         
 
-
 sub schedule { 
 
     my $self = shift;
@@ -114,31 +118,47 @@ sub schedule {
     my $schedule = $$self{_schedule};
     my $scheduler_wait = $$self{scheduler_wait};
 
-    # A subroutine to compute a scheduler wait, which
-    # is the the smallest of all task waits. We call
-    # this routine after we've run through all tasks at
-    # least once.
+    # A subroutine to compute a scheduler wait, which is the the
+    # smallest of all task waits. We call this routine after
+    # we've run through all tasks at least once. This function
+    # is closed under schedule() so it has access to variables
+    # local to schedule.
 
     my $recompute_scheduler_wait = sub { 
+
+        unless (scalar @{$schedule}) { 
+
+            # Oops, there are no tasks. We'll set wait to
+            # maximum and hope that tasks show up the next time
+            # this function is called.
+
+            $self->debug("no tasks to schedule.");
+            $scheduler_wait->set($$self{max_sw});
+            $self->debug("scheduler_wait: set to " . $self->time_rd($$self{max_sw}));
+            return;
+
+        }
+
         my $sw = $schedule->[0]->{_task_wait}->get();
+
         for my $task (@$schedule) { 
             if ($$task{_task_wait}->get() < $sw) {
                 $sw = $$task{_task_wait}->get();;
             }
         }
+
         $sw = $self->{max_sw} if $sw > $self->{max_sw};
+
         if ($sw > 0) { 
             $scheduler_wait->set($sw);
             $self->debug("scheduler_wait: set to " . $self->time_rd($sw));
         }
+
     };
  
     $self->debug("entering scheduler loop...");
 
     while (1) { 
-
-        # First, sleep for a unit time.
-        sleep($self->{sleep_unit});
 
         # Check to see if scheduler_wait is positive.  If so, 
         # go to sleep because all task waits are larger than 
@@ -180,14 +200,14 @@ sub schedule {
 
             }
 
-            $self->debug("((-- task = $command, last_ran = $last_ran, for user = $uid --))");
+            $self->debug("* $command");
 
             if ($task_wait->get() > 0) { 
 
                 # Constraints have indicated that they will not be met for
                 # at least sched_wait seconds.
 
-                $self->debug("task_wait: " . $task_wait->get() . " seconds");
+                $self->debug("  task_wait: " . $task_wait->get() . " seconds");
                 next TASK;
 
             };
@@ -207,8 +227,8 @@ sub schedule {
 
                 # Now call met() and wait()
 
-                my $met  = $cobject->met();
-                my $wait = $cobject->wait();
+                my ($met)  = $cobject->met();
+                my ($wait) = $cobject->wait();
 
                 if (not $met) { 
 
@@ -216,14 +236,14 @@ sub schedule {
                     # 0 and compare constraint wait with task_wait to see
                     # if we need to readjust task_wait.
 
-                    $self->debug("($constraint) unmet");
+                    $self->debug("  ($constraint) unmet");
                     $all_cns_met = 0;
 
                     if ($wait != 0 && $wait > $task_wait->get()) { 
 
                         # Task wait is largest of all constraint waits.
 
-                        $self->debug("($constraint) won't be met for " . $self->time_rd($wait));
+                        $self->debug("  ($constraint) won't be met for " . $self->time_rd($wait));
                         $task_wait->set($wait);
 
                     }
@@ -234,7 +254,7 @@ sub schedule {
                     # We don't need to do anything. If all constraints are
                     # met, all_cns_set will remain set to 1.
 
-                    $self->debug("($constraint) met");
+                    $self->debug("  ($constraint) met");
                    
                 }
 
@@ -244,7 +264,13 @@ sub schedule {
 
                 # All constraints met: the task is ready to run.
 
-                # Run the task now.
+                # Set nohup to 1. Tells the SIGNAL handler that
+                # this is not a good time for a HUP. If we
+                # receive a HUP during system(), the handler
+                # will record this in $self->{pending_hup} so we
+                # can replay the signal after system() is done.
+
+                $self->{nohup} = 1;
 
                 my $now = time();
                 $$task{_previous_run} = $now - $$task{last_ran};
@@ -261,6 +287,16 @@ sub schedule {
                 if ($$task{notify}) { 
                     $self->notify($task, time() - $$task{last_ran});
                 }
+
+                $self->{nohup} = 0;
+                if ($self->{pending_hup}) { 
+
+                    # If there got a HUP during system();
+                    # replay it now.
+
+                    $self->debug("replaying HUP signal sent earlier");
+                    kill(1, $$self{pid});
+                }
                 
             }
     
@@ -273,6 +309,14 @@ sub schedule {
         &$recompute_scheduler_wait();
 
     } # while - scheduler loop
+
+}
+
+
+sub getpid { 
+
+    my ($self) = @_;
+    $self->{pid} = $$;
 
 }
 
@@ -296,7 +340,7 @@ sub notify {
         return;
     }
 
-    $self->debug("sending notification to $$task{notify}");
+    $self->debug("  sending notification to $$task{notify}");
 
     my $template; 
 
