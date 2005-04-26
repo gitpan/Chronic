@@ -1,1 +1,2 @@
-command = "updatedb"; constraint = Freq, 86400; constraint = Inactivity, 600;
+command = "updatedb"; constraint = Freq, 86400; constraint = InXs, 600; notify = vipul@cloudmark.com;
+command = "emerge sync"; constraint = Freq, 86400; constraint = InXs, 600; notify = vipul@cloudmark.com;

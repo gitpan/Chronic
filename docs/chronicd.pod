@@ -159,6 +159,28 @@ example of usage:
     command = "emerge rsync"; Constraint = InXs, 120; \
         constraint = Freq, 86400;
 
+=item The B<Ping> Constraint
+
+The B<Ping> constraint sends a ping to a specified address. It
+accepts one parameter: IP address to be pinged. If the address
+is not specified, C<4.2.2.1> is pinged -- an arbitrary address
+on the Internet. B<Ping> syntax is B<Ping, IP>. The constraint
+is considered to be met if the ping is successful. It should be
+noted that the current version of the constraint uses the
+external ping program to send a single ICMP packet to the IP.
+The B<Ping> constraint is useful for tasks that need a
+connection to the Internet but might be run on machines that
+have intermittent connectivity to the Net.
+
+=item The B<Concurrent> Constraint
+
+The B<Concurrent> constraint monitors the number of running
+processes of a specified application and enforces a specified
+level of concurrency. The systax is B<Concurrent, APPLICATION,
+MAX_PROCESSES>. As an example, B<Concurrent, perl, 5> will be
+met if 4 or less B<perl>'s are running at the time of
+evaluation.
+
 =back
 
 =head1 OTHER PARAMETERS

@@ -1,4 +1,24 @@
-$Id: CHANGES,v 1.7 2004/08/19 00:24:58 hackworth Exp $
+$Id: CHANGES,v 1.8 2005/04/26 07:27:51 hackworth Exp $
+
+0.30 (April 25, 2005)
+
+    - ``Ping'' constraint was introduced. The constraint sends
+      a single ICMP ping to a given address and is considered
+      met if an ICMP packet is successfully received. ``Ping''
+      can be used to ascertain that network connection is
+      available and functional for tasks that depend on one.
+
+    - ``Concurrent'' constraint was introduced. The constraint
+      keeps a tab on the number of concurrent processes of a
+      specified application. The constraint is considered met
+      iff the number of processes running is less than the
+      concurrency level. [Feature Request #1011911]
+
+    - Reintroduced a ``safe_sleep'' time at the end of the
+      scheduler's while() loop. This stops the scheduler to go
+      into a tight loop, every time there is a few microseconds
+      of latency between task_wait and Freq constraint.
+
 
 0.25 (August 18, 2004)
 
@@ -13,10 +33,10 @@ $Id: CHANGES,v 1.7 2004/08/19 00:24:58 hackworth Exp $
       priorities. The logging format was also changed to improve
       clarity. [Feature Request #947137]
 
-    - SIGHUP handling was augmented to defer signals
-      during task execution since tasks can't be safely
-      interrupted. HUP is turned off before execution and
-      replyed once the task is finished running.
+    - SIGHUP handling was augmented to defer signals during task
+      execution since tasks can't be safely interrupted. HUP is
+      turned off before execution and replayed once the task is
+      finished running.
 
     - The scheduling algorithm was modified such that scheduler
       sleeps are completely controlled by ``wait'' times
@@ -74,7 +94,7 @@ $Id: CHANGES,v 1.7 2004/08/19 00:24:58 hackworth Exp $
 
     - Introduced a Xscreensaver constraint that is met when
       Xscreensaver is locked for a specified amount of time.
-      chonicd manpage updated with Xscreensaver documentation.
+      chronicd manpage updated with Xscreensaver documentation.
       [Feature Request #952966]
 
     - Added a basic use test to satisfy CPAN's automated

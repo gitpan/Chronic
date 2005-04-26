@@ -1,7 +1,7 @@
 #
 # Constraint-based, opportunistic scheduler.
 # Author: Vipul Ved Prakash <mail@vipul.net>.
-# $Id: Chronic.pm,v 1.13 2004/08/02 08:27:01 hackworth Exp $
+# $Id: Chronic.pm,v 1.14 2005/04/26 07:25:34 hackworth Exp $
 #
 
 package Schedule::Chronic; 
@@ -16,7 +16,7 @@ sub new {
     my ($class, %args) = @_;
     my %self = (%args);
 
-    $self{sleep_unit}           ||= 1;      # seconds
+    $self{safe_sleep}           ||= 1;      # 1 second
     $self{scheduler_wait}       = new Schedule::Chronic::Timer ('down');
     $self{var}                  ||= '/var/run';
     $self{max_sw}               = 10 * 60;  # 10 minutes
@@ -207,7 +207,7 @@ sub schedule {
                 # Constraints have indicated that they will not be met for
                 # at least sched_wait seconds.
 
-                $self->debug("  task_wait: " . $task_wait->get() . " seconds");
+                $self->debug("  task_wait: " . $self->time_rd($task_wait->get()));
                 next TASK;
 
             };
@@ -307,6 +307,12 @@ sub schedule {
         # task_wait is > 0.
 
         &$recompute_scheduler_wait();
+
+        # We'll do a one second sleep here so we don't cycle out
+        # of control when there's a mismatch between task_wait's
+        # and the scheduler_wait.
+
+        sleep ($self->{safe_sleep});
 
     } # while - scheduler loop
 
